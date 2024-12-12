@@ -1,19 +1,19 @@
 from fastapi import FastAPI
-import app.config
+from app.config import Config
 from app.router import router
 from app.logger import setup_logging
 from app.middleware import StructLogMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
-from uvicorn import Server, Config
+import uvicorn
 import logging
 
-app_config = app.config.Config()
+app_config = Config()
 app = FastAPI()
 app.include_router(router)
 app.add_middleware(StructLogMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
-server = Server(config = Config(
+server = uvicorn.Server(config = uvicorn.Config(
     app,
     host = app_config.host,
     port = int(app_config.port),
