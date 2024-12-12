@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "python-app-template"
+version = "0.1.0"
+description = ""
+authors = ["Thomas Kling <thomas.kling@banno.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.6"
+uvicorn = "^0.32.1"
+structlog = "^24.4.0"
+asgi-correlation-id = "^4.3.4"
+starlette = "^0.41.3"
+
+[tool.poetry.scripts]
+start = "app.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
