@@ -6,8 +6,6 @@ from asgi_correlation_id import CorrelationIdMiddleware
 from uvicorn import Server, Config
 import logging
 
-
-
 app = FastAPI()
 app.include_router(router)
 app.add_middleware(StructLogMiddleware)

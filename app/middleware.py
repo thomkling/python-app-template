@@ -47,7 +47,7 @@ class StructLogMiddleware:
                 "An unhandled exception was caught by last resort middleware",
                 exception_class=e.__class__.__name__,
                 exc_info=e,
-                stack_info=settings.LOG_INCLUDE_STACK,
+                stack_info=True,
             )
             info["status_code"] = 500
             response = JSONResponse(
