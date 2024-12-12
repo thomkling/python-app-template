@@ -5,7 +5,7 @@ import structlog
 from structlog.types import Processor, EventDict
 
 
-def setup_logging(app_name: str = "pythong-app-template", version: str = "0.1.0", log_level: str = "INFO"):
+def setup_logging(app_name: str = "python-app-template", version: str = "0.1.0", log_level: str = "INFO"):
     # use iso format timestamp
     timestamper = structlog.processors.TimeStamper(fmt="iso")
 
