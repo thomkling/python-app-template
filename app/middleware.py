@@ -110,6 +110,8 @@ class InstrumentationMiddleware:
                 duration=process_time,
             )
 
+# sanitize_url replaces segments of the path with an asterisk if that segment is not in the whitelist
+# we do this so we can track metrics by endpoint rather than by unique url
 def sanitize_url(url: str) -> str:
     from urllib.parse import urlparse
     whitelist = ["widget", "ping", "metrics", "exception"]
