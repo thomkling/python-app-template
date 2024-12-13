@@ -62,7 +62,7 @@ class InstrumentationMiddleware:
 
         try:
             # increment active gauge
-            active_request_gauge.labels(scope["method"], get_path_with_query_string(scope)).inc()
+            active_request_gauge.labels(scope["method"], sanitize_url(scope["path"])).inc()
             await self.app(scope, receive, inner_send)
         except Exception as e:
             app_logger.exception(
@@ -83,17 +83,18 @@ class InstrumentationMiddleware:
         finally:
             # calculate request process time and observe the metric
             http_method = scope["method"]
-            url = get_path_with_query_string(scope)
+            route = sanitize_url(scope["path"])
             process_time = time.perf_counter() - info["start_time"]
-            request_duration.labels(http_method, url).observe(process_time)
+            request_duration.labels(http_method, route).observe(process_time)
 
             # decrement active guage
-            active_request_gauge.labels(http_method, url).dec()
+            active_request_gauge.labels(http_method, route).dec()
 
             # increment counter
-            request_counter.labels(info["status_code"], http_method, url).inc()
+            request_counter.labels(info["status_code"], http_method, route).inc()
 
             # Recreate the Uvicorn access log format, but add all parameters as structured information
+            url = get_path_with_query_string(scope)
             client_host, client_port = scope["client"]
             http_version = scope["http_version"]
             access_logger.info(
@@ -108,3 +109,16 @@ class InstrumentationMiddleware:
                 network={"client": {"ip": client_host, "port": client_port}},
                 duration=process_time,
             )
+
+def sanitize_url(url: str) -> str:
+    from urllib.parse import urlparse
+    whitelist = ["widget", "ping", "metrics", "exception"]
+    parsed_url = urlparse(url)
+    path_parts = parsed_url.path.split('/')
+    # first str in list is an empty str
+    if len(path_parts) > 2:
+        for i, segment in enumerate(path_parts):
+            if segment != '' and segment not in whitelist:
+                path_parts[i] = '*'
+    sanitized_url = '/'.join(path_parts)
+    return sanitized_url
