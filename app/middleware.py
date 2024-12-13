@@ -6,15 +6,35 @@ from asgi_correlation_id import correlation_id
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from uvicorn.protocols.utils import get_path_with_query_string
+from prometheus_client import Histogram, Counter, Gauge
 
+# standard http prometheus metrics
+request_duration = Histogram(
+    "python_http_duration_seconds",
+    "Duration of HTTP requests by path",
+    labelnames=["method", "path"],
+)
+request_counter = Counter(
+    "python_api_requests_total",
+    "A counter for requests",
+    labelnames=["code", "method", "path"],
+)
+active_request_gauge = Gauge(
+    "python_http_server_active_requests",
+    "A counter for active http request count",
+    labelnames=["method", "path"],
+)
+
+
+# app and access loggers
 app_logger = structlog.stdlib.get_logger("app_logs")
 access_logger = structlog.stdlib.get_logger("access_logs")
 
-class AccessInfo(TypedDict, total=False):
+class RequestInfo(TypedDict, total=False):
     status_code: int
     start_time: float
 
-class StructLogMiddleware:
+class InstrumentationMiddleware:
     def __init__(self, app: ASGIApp):
         self.app = app
         pass
@@ -24,12 +44,12 @@ class StructLogMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-
+        
+        # clear possibly pre-existing contextvars and bind request id which should exist from CorrelationMiddleware
         structlog.contextvars.clear_contextvars()
-        # CorrelationIdMiddleware should be processed first so the "X-Request-ID" should exist
         structlog.contextvars.bind_contextvars(request_id=correlation_id.get())
 
-        info = AccessInfo()
+        info = RequestInfo()
 
         # Inner send function
         async def inner_send(message):
@@ -37,8 +57,12 @@ class StructLogMiddleware:
                 info["status_code"] = message["status"]
             await send(message)
 
+        # gather start time stamp
+        info["start_time"] = time.perf_counter()
+
         try:
-            info["start_time"] = time.perf_counter_ns()
+            # increment active gauge
+            active_request_gauge.labels(scope["method"], get_path_with_query_string(scope)).inc()
             await self.app(scope, receive, inner_send)
         except Exception as e:
             app_logger.exception(
@@ -57,13 +81,21 @@ class StructLogMiddleware:
             )
             await response(scope, receive, send)
         finally:
-            process_time = time.perf_counter_ns() - info["start_time"]
-            client_host, client_port = scope["client"]
+            # calculate request process time and observe the metric
             http_method = scope["method"]
-            http_version = scope["http_version"]
             url = get_path_with_query_string(scope)
+            process_time = time.perf_counter() - info["start_time"]
+            request_duration.labels(http_method, url).observe(process_time)
+
+            # decrement active guage
+            active_request_gauge.labels(http_method, url).dec()
+
+            # increment counter
+            request_counter.labels(info["status_code"], http_method, url).inc()
 
             # Recreate the Uvicorn access log format, but add all parameters as structured information
+            client_host, client_port = scope["client"]
+            http_version = scope["http_version"]
             access_logger.info(
                 f"""{client_host}:{client_port} - "{http_method} {scope["path"]} HTTP/{http_version}" {info["status_code"]}""",
                 http={

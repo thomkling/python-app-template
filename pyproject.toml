@@ -15,6 +15,7 @@ asgi-correlation-id = "^4.3.4"
 starlette = "^0.41.3"
 pytest = "^8.3.4"
 httpx = "^0.28.1"
+prometheus-client = "^0.21.1"
 
 [tool.poetry.scripts]
 start = "app.main:main"
