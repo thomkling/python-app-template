@@ -30,6 +30,9 @@ active_request_gauge = Gauge(
 app_logger = structlog.stdlib.get_logger("app_logs")
 access_logger = structlog.stdlib.get_logger("access_logs")
 
+# url segment approved_list for sanitization
+approved_list = ["ping", "metrics", "widget", "exception"]
+
 class RequestInfo(TypedDict, total=False):
     status_code: int
     start_time: float
@@ -62,7 +65,7 @@ class InstrumentationMiddleware:
 
         try:
             # increment active gauge
-            active_request_gauge.labels(scope["method"], sanitize_url(scope["path"])).inc()
+            active_request_gauge.labels(scope["method"], sanitize_url(scope["path"], approved_list)).inc()
             await self.app(scope, receive, inner_send)
         except Exception as e:
             app_logger.exception(
@@ -83,7 +86,7 @@ class InstrumentationMiddleware:
         finally:
             # calculate request process time and observe the metric
             http_method = scope["method"]
-            route = sanitize_url(scope["path"])
+            route = sanitize_url(scope["path"], approved_list)
             process_time = time.perf_counter() - info["start_time"]
             request_duration.labels(http_method, route).observe(process_time)
 
@@ -110,17 +113,16 @@ class InstrumentationMiddleware:
                 duration=process_time,
             )
 
-# sanitize_url replaces segments of the path with an asterisk if that segment is not in the whitelist
+# sanitize_url replaces segments of the path with an asterisk if that segment is not in the approved_list
 # we do this so we can track metrics by endpoint rather than by unique url
-def sanitize_url(url: str) -> str:
+def sanitize_url(url: str, approved_list: list[str]) -> str:
     from urllib.parse import urlparse
-    whitelist = ["widget", "ping", "metrics", "exception"]
     parsed_url = urlparse(url)
     path_parts = parsed_url.path.split('/')
     # first str in list is an empty str
     if len(path_parts) > 2:
         for i, segment in enumerate(path_parts):
-            if segment != '' and segment not in whitelist:
+            if segment != '' and segment not in approved_list:
                 path_parts[i] = '*'
     sanitized_url = '/'.join(path_parts)
     return sanitized_url
