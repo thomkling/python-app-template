@@ -3,7 +3,7 @@ from typing import Any
 import structlog
 from structlog.types import Processor, EventDict
 
-def setup_logging(app_name: str, version: str, log_level: str):
+def setup_logging(app_name: str, version: str, log_level: str) -> None:
     # use iso format timestamp
     timestamper = structlog.processors.TimeStamper(fmt="iso")
 

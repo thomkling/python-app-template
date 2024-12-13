@@ -1,6 +1,5 @@
 import time
 from typing import TypedDict
-from app.config import Config
 
 import structlog
 from asgi_correlation_id import correlation_id
@@ -8,15 +7,12 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from uvicorn.protocols.utils import get_path_with_query_string
 
-config = Config()
-app_logger = structlog.stdlib.get_logger(f"{config.app_name}.app_logs")
-access_logger = structlog.stdlib.get_logger(f"{config.app_name}.access_logs")
-
+app_logger = structlog.stdlib.get_logger("app_logs")
+access_logger = structlog.stdlib.get_logger("access_logs")
 
 class AccessInfo(TypedDict, total=False):
     status_code: int
     start_time: float
-
 
 class StructLogMiddleware:
     def __init__(self, app: ASGIApp):

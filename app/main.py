@@ -5,7 +5,7 @@ from app.logger import setup_logging
 from app.middleware import StructLogMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
 import uvicorn
-import logging
+import structlog
 
 app_config = Config()
 app = FastAPI()
@@ -22,7 +22,10 @@ server = uvicorn.Server(config = uvicorn.Config(
 # setting up logging here so that uvicorn loggers are already created and can be configured as we want
 setup_logging(app_config.app_name, app_config.version, app_config.log_level)
 
+log = structlog.stdlib.get_logger("app_logs")
+
 def main():
+    log.info(f"Starting service on port {app_config.port}...")
     server.run()
 
 if __name__ == "__main__":
