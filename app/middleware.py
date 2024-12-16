@@ -26,9 +26,8 @@ active_request_gauge = Gauge(
 )
 
 
-# app and access loggers
+# get app logger
 app_logger = structlog.stdlib.get_logger("app_logs")
-access_logger = structlog.stdlib.get_logger("access_logs")
 
 # url segment approved_list for sanitization
 approved_list = ["ping", "metrics", "widget", "exception"]
@@ -68,6 +67,7 @@ class InstrumentationMiddleware:
             active_request_gauge.labels(scope["method"], sanitize_url(scope["path"], approved_list)).inc()
             await self.app(scope, receive, inner_send)
         except Exception as e:
+            # catch unhandled exceptions
             app_logger.exception(
                 "An unhandled exception was caught by last resort middleware",
                 exception_class=e.__class__.__name__,
@@ -96,22 +96,25 @@ class InstrumentationMiddleware:
             # increment counter
             request_counter.labels(info["status_code"], http_method, route).inc()
 
-            # Recreate the Uvicorn access log format, but add all parameters as structured information
-            url = get_path_with_query_string(scope)
-            client_host, client_port = scope["client"]
-            http_version = scope["http_version"]
-            access_logger.info(
-                f"""{client_host}:{client_port} - "{http_method} {scope["path"]} HTTP/{http_version}" {info["status_code"]}""",
-                http={
-                    "url": str(url),
-                    "status_code": info["status_code"],
-                    "method": http_method,
-                    "request_id": correlation_id.get(),
-                    "version": http_version,
-                },
-                network={"client": {"ip": client_host, "port": client_port}},
-                duration=process_time,
-            )
+            # Create an app log for "Request IN" that includes basic request information for every request except
+            # those for /ping /health /metrics endpoints
+            path = scope["path"]
+            if path in ["/ping", "/health", "/metrics"]:
+                url = get_path_with_query_string(scope)
+                client_host, client_port = scope["client"]
+                http_version = scope["http_version"]
+                app_logger.info(
+                    f"Request IN - {path}",
+                    http={
+                        "url": str(url),
+                        "status_code": info["status_code"],
+                        "method": http_method,
+                        "request_id": correlation_id.get(),
+                        "version": http_version,
+                    },
+                    network={"client": {"ip": client_host, "port": client_port}},
+                    duration=process_time,
+                )
 
 # sanitize_url replaces segments of the path with an asterisk if that segment is not in the approved_list
 # we do this so we can track metrics by endpoint rather than by unique url
