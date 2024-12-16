@@ -104,7 +104,7 @@ class InstrumentationMiddleware:
                 client_host, client_port = scope["client"]
                 http_version = scope["http_version"]
                 app_logger.info(
-                    f"""{client_host}:{client_port} - "{http_method} {path} HTTP/{http_version}" {info["status_code"]}""",
+                    f"Request IN - {path}",
                     http={
                         "url": str(url),
                         "status_code": info["status_code"],
