@@ -68,6 +68,7 @@ class InstrumentationMiddleware:
             active_request_gauge.labels(scope["method"], sanitize_url(scope["path"], approved_list)).inc()
             await self.app(scope, receive, inner_send)
         except Exception as e:
+            # catch unhandled exceptions
             app_logger.exception(
                 "An unhandled exception was caught by last resort middleware",
                 exception_class=e.__class__.__name__,
