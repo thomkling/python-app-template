@@ -67,6 +67,6 @@ def setup_logging(app_name: str, version: str, log_level: str) -> None:
         logging.getLogger(_log).handlers.clear()
         logging.getLogger(_log).propagate = True
 
-    # Uvicorn logs are re-emitted with more context. We effectively silence them here
+    # Silence uvicorn access log. We create a more context specific log
     logging.getLogger("uvicorn.access").handlers.clear()
     logging.getLogger("uvicorn.access").propagate = False
