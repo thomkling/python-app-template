@@ -6,7 +6,6 @@ from asgi_correlation_id import correlation_id
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
-from uvicorn.protocols.utils import get_path_with_query_string
 from prometheus_client import Histogram, Counter, Gauge
 
 # standard http prometheus metrics
