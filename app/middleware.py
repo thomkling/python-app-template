@@ -3,6 +3,7 @@ from typing import TypedDict
 
 import structlog
 from asgi_correlation_id import correlation_id
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from uvicorn.protocols.utils import get_path_with_query_string
@@ -46,6 +47,8 @@ class InstrumentationMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+
+        request = Request(scope)
         
         # clear possibly pre-existing contextvars and bind request id which should exist from CorrelationMiddleware
         structlog.contextvars.clear_contextvars()
@@ -94,20 +97,20 @@ class InstrumentationMiddleware:
             active_request_gauge.labels(http_method, route).dec()
 
             # increment counter
-            request_counter.labels(info["status_code"], http_method, route).inc()
+            if "status_code" in info:
+                request_counter.labels(info["status_code"], http_method, route).inc()
 
             # Create an app log for "Request IN" that includes basic request information for every request except
             # those for /ping /health /metrics endpoints
             path = scope["path"]
             if path in ["/ping", "/health", "/metrics"]:
-                url = get_path_with_query_string(scope)
                 client_host, client_port = scope["client"]
                 http_version = scope["http_version"]
                 app_logger.info(
                     f"Request IN - {path}",
                     http={
-                        "url": str(url),
-                        "status_code": info["status_code"],
+                        "url": request.url,
+                        "status_code": info.get("status_code"),
                         "method": http_method,
                         "request_id": correlation_id.get(),
                         "version": http_version,
